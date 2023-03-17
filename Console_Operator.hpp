@@ -148,12 +148,14 @@ public:
 class DoubleBufferDraw
 {
 private:
+	Console hOldBuf;//保存对象，以便之后恢复
 	Console hBuffer[2];
 	unsigned long ulCurrent : 1;
 	DWORD dwError;
 	bool bIsError;
 public:
 	DoubleBufferDraw(void) :
+		hOldBuf(GetStdHandle(STD_OUTPUT_HANDLE)), 
 		hBuffer
 	{
 		CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CONSOLE_TEXTMODE_BUFFER, NULL),
@@ -177,7 +179,7 @@ public:
 	~DoubleBufferDraw(void)
 	{
 		//恢复成原来的
-		SetConsoleActiveScreenBuffer(GetStdHandle(STD_OUTPUT_HANDLE));
+		SetConsoleActiveScreenBuffer(hOldBuf);
 		//销毁句柄
 		CloseHandle(hBuffer[0]);
 		CloseHandle(hBuffer[1]);
