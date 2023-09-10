@@ -141,8 +141,8 @@ int main(void)
 	{
 		dbd.BegPrint();
 	
-		((Console)dbd).SetCursorShow(false);
-		tb.PrintBlockSkipBlank(dbd, 0, 0);
+		dbd.GetConsole().SetCursorShow(false);
+		tb.PrintBlockSkipBlank(dbd.GetConsole(), 0, 0);
 	
 		dbd.EndPrint();
 	
