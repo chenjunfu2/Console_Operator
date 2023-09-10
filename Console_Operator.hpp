@@ -8,12 +8,6 @@ class Console
 private:
 	HANDLE hConsole;
 	CONSOLE_SCREEN_BUFFER_INFO stConsoleInfo;
-
-	operator HANDLE(void)
-	{
-		return hConsole;
-	}
-
 	friend class DoubleBufferDraw;
 public:
 	enum class TextColor
@@ -150,7 +144,7 @@ class DoubleBufferDraw
 private:
 	Console hOldBuf;//保存对象，以便之后恢复
 	Console hBuffer[2];
-	unsigned long ulCurrent : 1;
+	unsigned long ulCurrent;
 	DWORD dwError;
 	bool bIsError;
 public:
@@ -165,13 +159,13 @@ public:
 	dwError(NO_ERROR),
 	bIsError(false)
 	{
-		if (hBuffer[0] == INVALID_HANDLE_VALUE || hBuffer[1] == INVALID_HANDLE_VALUE)
+		if (hBuffer[0].GetConsole() == INVALID_HANDLE_VALUE || hBuffer[1].GetConsole() == INVALID_HANDLE_VALUE)
 		{
 			dwError = GetLastError();
 			bIsError = true;
 
-			CloseHandle(hBuffer[0]);
-			CloseHandle(hBuffer[1]);
+			CloseHandle(hBuffer[0].GetConsole());
+			CloseHandle(hBuffer[1].GetConsole());
 			return;
 		}
 	}
@@ -179,10 +173,10 @@ public:
 	~DoubleBufferDraw(void)
 	{
 		//恢复成原来的
-		SetConsoleActiveScreenBuffer(hOldBuf);
+		SetConsoleActiveScreenBuffer(hOldBuf.GetConsole());
 		//销毁句柄
-		CloseHandle(hBuffer[0]);
-		CloseHandle(hBuffer[1]);
+		CloseHandle(hBuffer[0].GetConsole());
+		CloseHandle(hBuffer[1].GetConsole());
 	}
 
 	void BegPrint(void)
@@ -192,8 +186,8 @@ public:
 
 	void EndPrint(void)
 	{
-		SetConsoleActiveScreenBuffer(hBuffer[ulCurrent]);//绘制结束输出
-		++ulCurrent;//切换到下一个缓冲区
+		SetConsoleActiveScreenBuffer(hBuffer[ulCurrent].GetConsole());//绘制结束输出
+		ulCurrent = (ulCurrent + 1) & 1;//切换到下一个缓冲区（截断到第一位因为数组只有0和1）
 	}
 
 	DWORD WriteBuffer(const char *cpBuffer, DWORD dwWriteLen)
@@ -218,7 +212,7 @@ public:
 		return bIsError;
 	}
 
-	operator Console &(void)
+	Console &GetConsole(void)
 	{
 		return hBuffer[ulCurrent];
 	}
