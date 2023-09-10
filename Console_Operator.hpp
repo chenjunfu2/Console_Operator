@@ -7,8 +7,6 @@ class Console
 {
 private:
 	HANDLE hConsole;
-	CONSOLE_SCREEN_BUFFER_INFO stConsoleInfo;
-	friend class DoubleBufferDraw;
 public:
 	enum class TextColor
 	{
@@ -53,9 +51,7 @@ public:
 	};
 
 	Console(HANDLE _hConsole = GetStdHandle(STD_OUTPUT_HANDLE)) :hConsole(_hConsole)
-	{
-		GetConsoleScreenBufferInfo(hConsole, &stConsoleInfo);
-	}
+	{}
 	~Console(void) = default;
 
 	HANDLE GetConsole(void)
@@ -81,10 +77,14 @@ public:
 	DWORD ClearBuffer(void)
 	{
 		DWORD dwWrittenLen;
-		if (!FillConsoleOutputAttribute(hConsole, 0, stConsoleInfo.dwSize.X * stConsoleInfo.dwSize.Y, COORD{0, 0}, &dwWrittenLen))
+		CONSOLE_SCREEN_BUFFER_INFO stConsoleInfo;
+		
+		if (!GetConsoleScreenBufferInfo(hConsole, &stConsoleInfo) ||
+			!FillConsoleOutputAttribute(hConsole, 0, stConsoleInfo.dwSize.X * stConsoleInfo.dwSize.Y, COORD{0, 0}, &dwWrittenLen))
 		{
 			return 0;
 		}
+
 		return dwWrittenLen;
 	}
 
