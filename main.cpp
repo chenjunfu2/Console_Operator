@@ -72,7 +72,7 @@ public:
 
 		for (long y = 0; y < 4; ++y)
 		{
-			csConsole.SetCursorPos(lStartX, lStartY + y);
+			csConsole.SetCursorPos({lStartX, lStartY + y});
 			for (long x = 0; x < 4; ++x)
 			{
 				if (bBlock[ulRotate][y][x])
@@ -97,7 +97,7 @@ public:
 
 		for (long y = 0; y < 4; ++y)
 		{
-			csConsole.SetCursorPos(lStartX, lStartY + y);
+			csConsole.SetCursorPos({lStartX, lStartY + y});
 			for (long x = 0; x < 4; ++x)
 			{
 				if (bBlock[ulRotate][y][x])
@@ -106,7 +106,7 @@ public:
 				}
 				else//跳过这个空白
 				{
-					csConsole.MoveCursorPos(2, 0);
+					csConsole.MoveCursorPos({2, 0});
 				}
 			}
 		}
@@ -150,7 +150,7 @@ int main(void)
 		tb.Rotation(-1);
 		//随机方块颜色
 		//tb.SetBlockColor((Console::TextColor)(rand() % ((int)Console::TextColor::bright_white + 1)));
-		Sleep(40);
+		Sleep(80);
 	}
 
 

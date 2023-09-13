@@ -2,7 +2,7 @@
 #include <Windows.h>
 #include <utility>
 
-class Console_Operator
+class Console
 {
 private:
 	HANDLE hConsole;
@@ -85,19 +85,19 @@ public:
 	};
 
 public:
-	Console_Operator(HANDLE _hConsole = INVALID_HANDLE_VALUE) :hConsole(_hConsole)
+	Console(HANDLE _hConsole = INVALID_HANDLE_VALUE) :hConsole(_hConsole)
 	{}
 
-	Console_Operator(const Console_Operator &) = default;
+	Console(const Console &) = default;
 
-	Console_Operator(Console_Operator &&_Move) noexcept :hConsole(_Move.hConsole)
+	Console(Console &&_Move) noexcept :hConsole(_Move.hConsole)
 	{
 		_Move.hConsole = INVALID_HANDLE_VALUE;
 	}
 
-	~Console_Operator(void) = default;
+	~Console(void) = default;
 
-	Console_Operator &operator=(Console_Operator &&_Move) noexcept
+	Console &operator=(Console &&_Move) noexcept
 	{
 		hConsole = _Move.hConsole;
 		_Move.hConsole = INVALID_HANDLE_VALUE;
@@ -188,9 +188,9 @@ public:
 	}
 };
 
-Console_Operator::TextColor operator|(const Console_Operator::TextColor &_l, const Console_Operator::TextColor &_r)//重载或运算符方便运算TextColor
+Console::TextColor operator|(const Console::TextColor &_l, const Console::TextColor &_r)//重载或运算符方便运算TextColor
 {
-	return (Console_Operator::TextColor)((unsigned long)_l | (unsigned long)_r);
+	return (Console::TextColor)((unsigned long)_l | (unsigned long)_r);
 }
 
 class DoubleBufferDraw
@@ -198,8 +198,8 @@ class DoubleBufferDraw
 private:
 	static constexpr long lBufferNum = 2;
 	unsigned long ulCurrent;
-	Console_Operator csBuffer[lBufferNum];
-	Console_Operator csOldBuf;//保存对象，以便之后恢复
+	Console csBuffer[lBufferNum];
+	Console csOldBuf;//保存对象，以便之后恢复
 public:
 	DoubleBufferDraw(void)
 	{
@@ -257,7 +257,7 @@ public:
 		ulCurrent = (ulCurrent + 1) % lBufferNum;//切换到下一个缓冲区
 	}
 
-	Console_Operator &GetConsole(void)
+	Console &GetConsole(void)
 	{
 		return csBuffer[ulCurrent];
 	}
