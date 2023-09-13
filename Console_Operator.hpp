@@ -1,14 +1,13 @@
 #pragma once
 #include <Windows.h>
+#include <utility>
 
-class DoubleBufferDraw;
-
-class Console
+class Console_Operator
 {
 private:
 	HANDLE hConsole;
 public:
-	enum class TextColor
+	enum class TextColor :unsigned long
 	{
 		//字体色
 		black = 0,
@@ -47,12 +46,63 @@ public:
 
 	struct CursorPos
 	{
-		SHORT x, y;
+		long x, y;
+
+		CursorPos(long _x, long _y) :x(_x), y(_y)
+		{}
+
+		CursorPos(const COORD &_crd) :x(_crd.X), y(_crd.Y)
+		{}
+
+		operator COORD(void) const
+		{
+			return COORD{(SHORT)x,(SHORT)y};
+		}
+
+		CursorPos &operator+=(const CursorPos &_r)
+		{
+			x += _r.x;
+			y += _r.y;
+			return *this;
+		}
+
+		CursorPos &operator-=(const CursorPos &_r)
+		{
+			x -= _r.x;
+			y -= _r.y;
+			return *this;
+		}
+
+		CursorPos operator+(const CursorPos &_r) const
+		{
+			return CursorPos(x + _r.x, y + _r.y);
+		}
+
+		CursorPos operator-(const CursorPos &_r) const
+		{
+			return CursorPos(x - _r.x, y - _r.y);
+		}
 	};
 
-	Console(HANDLE _hConsole = GetStdHandle(STD_OUTPUT_HANDLE)) :hConsole(_hConsole)
+public:
+	Console_Operator(HANDLE _hConsole = INVALID_HANDLE_VALUE) :hConsole(_hConsole)
 	{}
-	~Console(void) = default;
+
+	Console_Operator(const Console_Operator &) = default;
+
+	Console_Operator(Console_Operator &&_Move) noexcept :hConsole(_Move.hConsole)
+	{
+		_Move.hConsole = INVALID_HANDLE_VALUE;
+	}
+
+	~Console_Operator(void) = default;
+
+	Console_Operator &operator=(Console_Operator &&_Move) noexcept
+	{
+		hConsole = _Move.hConsole;
+		_Move.hConsole = INVALID_HANDLE_VALUE;
+		return *this;
+	}
 
 	HANDLE GetConsole(void)
 	{
@@ -89,9 +139,9 @@ public:
 	}
 
 	//设置光标坐标
-	bool SetCursorPos(SHORT x, SHORT y)
+	bool SetCursorPos(const CursorPos &stCursorPos)
 	{
-		return SetConsoleCursorPosition(hConsole, COORD{x, y});//同步到控制台(Set设置)（Console控制台）（Cursor光标） （Position位置）
+		return SetConsoleCursorPosition(hConsole, (COORD)stCursorPos);
 	}
 
 	//获取光标坐标
@@ -99,14 +149,13 @@ public:
 	{
 		CONSOLE_SCREEN_BUFFER_INFO screen_buffer_info;
 		GetConsoleScreenBufferInfo(hConsole, &screen_buffer_info);
-		return {screen_buffer_info.dwCursorPosition.X,screen_buffer_info.dwCursorPosition.Y};
+		return CursorPos(screen_buffer_info.dwCursorPosition);
 	}
 
 	//从当前位置移动光标
-	bool MoveCursorPos(SHORT x, SHORT y)
+	bool MoveCursorPos(const CursorPos &stCursorPos)
 	{
-		CursorPos stCurrentPos = GetCursorPos();
-		return SetCursorPos(stCurrentPos.x + x, stCurrentPos.y + y);
+		return SetCursorPos(GetCursorPos() + stCursorPos);
 	}
 
 	//设置文本颜色
@@ -139,91 +188,77 @@ public:
 	}
 };
 
+Console_Operator::TextColor operator|(const Console_Operator::TextColor &_l, const Console_Operator::TextColor &_r)//重载或运算符方便运算TextColor
+{
+	return (Console_Operator::TextColor)((unsigned long)_l | (unsigned long)_r);
+}
+
 class DoubleBufferDraw
 {
 private:
-	Console hOldBuf;//保存对象，以便之后恢复
-	Console hBuffer[2];
+	static constexpr long lBufferNum = 2;
 	unsigned long ulCurrent;
-	DWORD dwError;
-	bool bIsError;
+	Console_Operator csBuffer[lBufferNum];
+	Console_Operator csOldBuf;//保存对象，以便之后恢复
 public:
-	DoubleBufferDraw(void) :
-		hOldBuf(GetStdHandle(STD_OUTPUT_HANDLE)), 
-		hBuffer
+	DoubleBufferDraw(void)
 	{
-		CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CONSOLE_TEXTMODE_BUFFER, NULL),
-		CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CONSOLE_TEXTMODE_BUFFER, NULL),
-	},
-	ulCurrent(0),
-	dwError(NO_ERROR),
-	bIsError(false)
-	{
-		if (hBuffer[0].GetConsole() == INVALID_HANDLE_VALUE || hBuffer[1].GetConsole() == INVALID_HANDLE_VALUE)
+		ulCurrent = 0;
+		csOldBuf = GetStdHandle(STD_OUTPUT_HANDLE);//保存当前控制台初始句柄
+		for (long i = 0; i < lBufferNum; ++i)
 		{
-			dwError = GetLastError();
-			bIsError = true;
-
-			CloseHandle(hBuffer[0].GetConsole());
-			CloseHandle(hBuffer[1].GetConsole());
-			return;
+			HANDLE hNewConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
+			if (hNewConsole == INVALID_HANDLE_VALUE)
+			{
+				hNewConsole = csOldBuf.GetConsole();//创建失败使用初始句柄
+			}
+			csBuffer[i].SetConsole(hNewConsole);
 		}
 	}
+
+	DoubleBufferDraw(DoubleBufferDraw &&_Move) noexcept :
+		ulCurrent(_Move.ulCurrent),
+		csOldBuf(std::move(_Move.csOldBuf))
+	{
+		for (long i = 0; i < lBufferNum; ++i)
+		{
+			csBuffer[i] = std::move(_Move.csBuffer[i]);
+		}
+	}
+
+	DoubleBufferDraw(const DoubleBufferDraw &) = delete;
 
 	~DoubleBufferDraw(void)
 	{
 		//恢复成原来的
-		SetConsoleActiveScreenBuffer(hOldBuf.GetConsole());
+		SetConsoleActiveScreenBuffer(csOldBuf.GetConsole());
 		//销毁句柄
-		CloseHandle(hBuffer[0].GetConsole());
-		CloseHandle(hBuffer[1].GetConsole());
+		for (long i = 0; i < lBufferNum; ++i)
+		{
+			HANDLE hDelConsole = csBuffer[i].GetConsole();
+			if (hDelConsole != csOldBuf.GetConsole())//关闭所有非初始句柄
+			{
+				CloseHandle(hDelConsole);
+			}
+		}
 	}
+
+	DoubleBufferDraw &operator=(const DoubleBufferDraw &) = delete;
+	DoubleBufferDraw &operator=(DoubleBufferDraw &&) = delete;
 
 	void BegPrint(void)
 	{
-		hBuffer[ulCurrent].ClearBuffer();//清理缓冲区
+		csBuffer[ulCurrent].ClearBuffer();//清理缓冲区
 	}
 
 	void EndPrint(void)
 	{
-		SetConsoleActiveScreenBuffer(hBuffer[ulCurrent].GetConsole());//绘制结束输出
-		ulCurrent = (ulCurrent + 1) & 1;//切换到下一个缓冲区（截断到第一位因为数组只有0和1）
+		SetConsoleActiveScreenBuffer(csBuffer[ulCurrent].GetConsole());//绘制结束输出
+		ulCurrent = (ulCurrent + 1) % lBufferNum;//切换到下一个缓冲区
 	}
 
-	DWORD WriteBuffer(const char *cpBuffer, DWORD dwWriteLen)
+	Console_Operator &GetConsole(void)
 	{
-		DWORD dwWrittenLen = hBuffer[ulCurrent].WriteBuffer(cpBuffer, dwWriteLen);
-		if (dwWrittenLen == 0)
-		{
-			dwError = GetLastError();
-			bIsError = true;
-		}
-
-		return dwWrittenLen;
-	}
-
-	DWORD GetLastError(void)
-	{
-		return dwError;
-	}
-
-	bool IsError(void)
-	{
-		return bIsError;
-	}
-
-	Console &GetConsole(void)
-	{
-		return hBuffer[ulCurrent];
-	}
-
-	Console &GetCurrentBuffer(void)
-	{
-		return hBuffer[ulCurrent];
-	}
-
-	Console *GetBufferArr(void)
-	{
-		return hBuffer;
+		return csBuffer[ulCurrent];
 	}
 };
